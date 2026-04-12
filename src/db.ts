@@ -5,6 +5,8 @@ import path from 'path';
 import { ASSISTANT_NAME, DATA_DIR, STORE_DIR } from './config.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
+import { initTraceSchema } from './evolution/trace-collector.js';
+import { initEvolutionSchema } from './evolution/auto-committer.js';
 import {
   NewMessage,
   RegisteredGroup,
@@ -186,6 +188,15 @@ function createSchema(database: Database.Database): void {
   } catch {
     /* columns already exist */
   }
+
+  // Evolution pipeline tables
+  initTraceSchema(database);
+  initEvolutionSchema(database);
+}
+
+/** Get the database instance (for subsystems that need direct access). */
+export function getDb(): Database.Database {
+  return db;
 }
 
 export function initDatabase(): void {

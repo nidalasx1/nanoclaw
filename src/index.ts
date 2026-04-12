@@ -39,6 +39,7 @@ import {
   getMessagesSince,
   getNewMessages,
   getRouterState,
+  getDb,
   initDatabase,
   setRegisteredGroup,
   setRouterState,
@@ -66,6 +67,7 @@ import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
 import { rebuildSkillsIndex } from './skill-ipc.js';
+import { initEvolution, stopEvolution } from './evolution/index.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -582,6 +584,7 @@ function ensureContainerSystemRunning(): void {
 async function main(): Promise<void> {
   ensureContainerSystemRunning();
   initDatabase();
+  initEvolution(getDb());
   logger.info('Database initialized');
   loadState();
 
@@ -609,6 +612,7 @@ async function main(): Promise<void> {
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
+    stopEvolution();
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();
     process.exit(0);
