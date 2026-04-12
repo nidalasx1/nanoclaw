@@ -65,6 +65,7 @@ import { startSessionCleanup } from './session-cleanup.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
+import { rebuildSkillsIndex } from './skill-ipc.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -182,6 +183,16 @@ function registerGroup(jid: string, group: RegisteredGroup): void {
 
   // Ensure a corresponding OneCLI agent exists (best-effort, non-blocking)
   ensureOneCLIAgent(jid, group);
+
+  // Build initial skills index for this group
+  try {
+    rebuildSkillsIndex(group.folder);
+  } catch (err) {
+    logger.warn(
+      { folder: group.folder, err },
+      'Failed to build initial skills index',
+    );
+  }
 
   logger.info(
     { jid, name: group.name, folder: group.folder },
@@ -579,6 +590,19 @@ async function main(): Promise<void> {
   for (const [jid, group] of Object.entries(registeredGroups)) {
     ensureOneCLIAgent(jid, group);
   }
+
+  // Rebuild skill indexes for all registered groups
+  for (const group of Object.values(registeredGroups)) {
+    try {
+      rebuildSkillsIndex(group.folder);
+    } catch (err) {
+      logger.warn(
+        { group: group.name, err },
+        'Failed to rebuild skills index on startup',
+      );
+    }
+  }
+  logger.info('Skill indexes rebuilt');
 
   restoreRemoteControl();
 

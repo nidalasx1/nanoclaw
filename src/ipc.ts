@@ -9,6 +9,7 @@ import { createTask, deleteTask, getTaskById, updateTask } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
+import { processSkillIpc, SkillIpcMessage } from './skill-ipc.js';
 
 export interface IpcDeps {
   sendMessage: (jid: string, text: string) => Promise<void>;
@@ -144,6 +145,42 @@ export function startIpcWatcher(deps: IpcDeps): void {
         }
       } catch (err) {
         logger.error({ err, sourceGroup }, 'Error reading IPC tasks directory');
+      }
+
+      // Process skill IPC commands from this group's IPC directory
+      const skillsDir = path.join(ipcBaseDir, sourceGroup, 'skills');
+      try {
+        if (fs.existsSync(skillsDir)) {
+          const skillFiles = fs
+            .readdirSync(skillsDir)
+            .filter((f) => f.endsWith('.json'));
+          for (const file of skillFiles) {
+            const filePath = path.join(skillsDir, file);
+            try {
+              const data = JSON.parse(
+                fs.readFileSync(filePath, 'utf-8'),
+              ) as SkillIpcMessage;
+              await processSkillIpc(data, sourceGroup, isMain);
+              fs.unlinkSync(filePath);
+            } catch (err) {
+              logger.error(
+                { file, sourceGroup, err },
+                'Error processing skill IPC message',
+              );
+              const errorDir = path.join(ipcBaseDir, 'errors');
+              fs.mkdirSync(errorDir, { recursive: true });
+              fs.renameSync(
+                filePath,
+                path.join(errorDir, `${sourceGroup}-${file}`),
+              );
+            }
+          }
+        }
+      } catch (err) {
+        logger.error(
+          { err, sourceGroup },
+          'Error reading IPC skills directory',
+        );
       }
     }
 

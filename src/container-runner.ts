@@ -27,6 +27,7 @@ import {
 import { OneCLI } from '@onecli-sh/sdk';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
+import { getSkillMounts, buildSkillSystemPrompt } from './skill-ipc.js';
 
 const onecli = new OneCLI({ url: ONECLI_URL });
 
@@ -43,6 +44,7 @@ export interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   script?: string;
+  skillPrompt?: string; // Injected skill index + memory context
 }
 
 export interface ContainerOutput {
@@ -190,6 +192,7 @@ function buildVolumeMounts(
   fs.mkdirSync(path.join(groupIpcDir, 'messages'), { recursive: true });
   fs.mkdirSync(path.join(groupIpcDir, 'tasks'), { recursive: true });
   fs.mkdirSync(path.join(groupIpcDir, 'input'), { recursive: true });
+  fs.mkdirSync(path.join(groupIpcDir, 'skills'), { recursive: true });
   mounts.push({
     hostPath: groupIpcDir,
     containerPath: '/workspace/ipc',
@@ -237,6 +240,17 @@ function buildVolumeMounts(
       isMain,
     );
     mounts.push(...validatedMounts);
+  }
+
+  // Skill engine mounts: skills directory (ro), MEMORY.md (rw), SKILLS_INDEX.md (ro)
+  try {
+    const skillMounts = getSkillMounts(group.folder);
+    mounts.push(...skillMounts);
+  } catch (err) {
+    logger.warn(
+      { group: group.name, err },
+      'Failed to compute skill mounts, skipping',
+    );
   }
 
   return mounts;
@@ -355,7 +369,12 @@ export async function runContainerAgent(
     let stdoutTruncated = false;
     let stderrTruncated = false;
 
-    container.stdin.write(JSON.stringify(input));
+    // Inject skill system prompt into the container input
+    const enrichedInput = {
+      ...input,
+      skillPrompt: buildSkillSystemPrompt(input.groupFolder),
+    };
+    container.stdin.write(JSON.stringify(enrichedInput));
     container.stdin.end();
 
     // Streaming output: parse OUTPUT_START/END marker pairs as they arrive
