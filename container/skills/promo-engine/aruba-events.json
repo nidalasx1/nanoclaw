@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "timezone": "America/Aruba",
+  "lead_days": 14,
+  "events": [
+    {
+      "name": "New Year",
+      "fixed": true,
+      "month": 1,
+      "day": 1,
+      "duration_days": 3,
+      "keywords": ["new year", "fresh start", "resolution"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Dia di Betico",
+      "fixed": true,
+      "month": 1,
+      "day": 25,
+      "duration_days": 3,
+      "keywords": ["patriotic", "Aruba", "national"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Valentine's Day",
+      "fixed": true,
+      "month": 2,
+      "day": 14,
+      "duration_days": 7,
+      "keywords": ["love", "gift", "couple", "romance"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Dia di Himno y Bandera",
+      "fixed": true,
+      "month": 3,
+      "day": 18,
+      "duration_days": 3,
+      "keywords": ["flag", "anthem", "Aruba", "national"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Mother's Day",
+      "fixed": false,
+      "keywords": ["mom", "mother", "gift", "family", "care"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Father's Day",
+      "fixed": false,
+      "keywords": ["dad", "father", "gift", "family"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Back to School",
+      "fixed": true,
+      "month": 8,
+      "day": 1,
+      "duration_days": 21,
+      "keywords": ["school", "supplies", "kids", "students", "backpack"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Black Friday",
+      "fixed": false,
+      "keywords": ["deals", "discount", "shopping", "sale"],
+      "promo_type": "flash-sale"
+    },
+    {
+      "name": "Christmas",
+      "fixed": true,
+      "month": 12,
+      "day": 25,
+      "duration_days": 14,
+      "keywords": ["gift", "holiday", "family", "christmas", "present"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Carnaval",
+      "fixed": false,
+      "keywords": ["party", "costume", "festival", "celebration", "carnaval"],
+      "promo_type": "seasonal-deal"
+    },
+    {
+      "name": "Easter",
+      "fixed": false,
+      "keywords": ["family", "spring", "easter"],
+      "promo_type": "seasonal-deal"
+    }
+  ],
+  "overrides": {
+    "2026": {
+      "Mother's Day": "2026-05-10",
+      "Father's Day": "2026-06-21",
+      "Black Friday": "2026-11-27",
+      "Carnaval": "2026-02-15",
+      "Easter": "2026-04-05"
+    },
+    "2027": {
+      "Mother's Day": "2027-05-09",
+      "Father's Day": "2027-06-20",
+      "Black Friday": "2027-11-26",
+      "Carnaval": "2027-02-07",
+      "Easter": "2027-03-28"
+    }
+  }
+}
