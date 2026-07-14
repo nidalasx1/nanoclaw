@@ -80,7 +80,13 @@ export class WhatsAppChannel implements Channel {
         keys: makeCacheableSignalKeyStore(state.keys, {
           ...logger,
           level: 'warn',
-          child: () => ({ ...logger, level: 'warn', child: () => logger as any, trace: () => {} }) as any,
+          child: () =>
+            ({
+              ...logger,
+              level: 'warn',
+              child: () => logger as any,
+              trace: () => {},
+            }) as any,
           trace: () => {},
         } as any),
       },
@@ -88,7 +94,13 @@ export class WhatsAppChannel implements Channel {
       logger: {
         ...logger,
         level: 'warn',
-        child: () => ({ ...logger, level: 'warn', child: () => logger as any, trace: () => {} }) as any,
+        child: () =>
+          ({
+            ...logger,
+            level: 'warn',
+            child: () => logger as any,
+            trace: () => {},
+          }) as any,
         trace: () => {},
       } as any,
       browser: Browsers.macOS('Chrome'),
@@ -416,16 +428,19 @@ export class WhatsAppChannel implements Channel {
     if (!this.connected) throw new Error('WhatsApp not connected');
     // Normalize JIDs: ensure they end with @s.whatsapp.net
     const normalizedParticipants = participants.map((p) =>
-      p.includes('@') ? p : `${p}@s.whatsapp.net`
+      p.includes('@') ? p : `${p}@s.whatsapp.net`,
     );
     const result = await this.sock.groupCreate(name, normalizedParticipants);
     const newJid: string = result.id ?? (result as any).gid ?? '';
     if (!newJid) throw new Error('groupCreate returned no JID');
-    logger.info({ name, newJid, participants: normalizedParticipants }, 'WhatsApp group created');
+    logger.info(
+      { name, newJid, participants: normalizedParticipants },
+      'WhatsApp group created',
+    );
     return newJid;
   }
 
-    private async flushOutgoingQueue(): Promise<void> {
+  private async flushOutgoingQueue(): Promise<void> {
     if (this.flushing || this.outgoingQueue.length === 0) return;
     this.flushing = true;
     try {

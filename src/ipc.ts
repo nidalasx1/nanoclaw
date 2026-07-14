@@ -469,13 +469,23 @@ export async function processTaskIpc(
     case 'create_group':
       // Only main group can create WhatsApp groups
       if (!isMain) {
-        logger.warn({ sourceGroup }, 'Unauthorized create_group attempt blocked');
+        logger.warn(
+          { sourceGroup },
+          'Unauthorized create_group attempt blocked',
+        );
         break;
       }
-      if (data.name && Array.isArray(data.participants) && data.participants.length > 0) {
+      if (
+        data.name &&
+        Array.isArray(data.participants) &&
+        data.participants.length > 0
+      ) {
         try {
           const newJid = await deps.createGroup(data.name, data.participants);
-          logger.info({ name: data.name, newJid, participants: data.participants }, 'WhatsApp group created');
+          logger.info(
+            { name: data.name, newJid, participants: data.participants },
+            'WhatsApp group created',
+          );
           // Auto-register the new group if folder and trigger provided
           if (data.folder && data.trigger) {
             const folder = data.folder as string;
@@ -495,10 +505,16 @@ export async function processTaskIpc(
             await deps.sendMessage(newJid, data.initialMessage as string);
           }
         } catch (err) {
-          logger.error({ err, name: data.name }, 'Failed to create WhatsApp group');
+          logger.error(
+            { err, name: data.name },
+            'Failed to create WhatsApp group',
+          );
         }
       } else {
-        logger.warn({ data }, 'Invalid create_group request - missing name or participants');
+        logger.warn(
+          { data },
+          'Invalid create_group request - missing name or participants',
+        );
       }
       break;
 

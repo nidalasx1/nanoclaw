@@ -725,7 +725,8 @@ async function main(): Promise<void> {
   startIpcWatcher({
     createGroup: (name, participants) => {
       const waChannel = channels.find((ch) => ch.createGroup);
-      if (!waChannel?.createGroup) throw new Error('No channel supports createGroup');
+      if (!waChannel?.createGroup)
+        throw new Error('No channel supports createGroup');
       return waChannel.createGroup(name, participants);
     },
     sendMessage: (jid, text) => {
