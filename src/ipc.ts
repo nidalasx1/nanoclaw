@@ -12,6 +12,7 @@ import { RegisteredGroup } from './types.js';
 
 export interface IpcDeps {
   sendMessage: (jid: string, text: string) => Promise<void>;
+  createGroup: (name: string, participants: string[]) => Promise<string>;
   registeredGroups: () => Record<string, RegisteredGroup>;
   registerGroup: (jid: string, group: RegisteredGroup) => void;
   syncGroups: (force: boolean) => Promise<void>;
@@ -173,6 +174,9 @@ export async function processTaskIpc(
     trigger?: string;
     requiresTrigger?: boolean;
     containerConfig?: RegisteredGroup['containerConfig'];
+    // For create_group
+    participants?: string[];
+    initialMessage?: string;
   },
   sourceGroup: string, // Verified identity from IPC directory
   isMain: boolean, // Verified from directory path
@@ -459,6 +463,42 @@ export async function processTaskIpc(
           { data },
           'Invalid register_group request - missing required fields',
         );
+      }
+      break;
+
+    case 'create_group':
+      // Only main group can create WhatsApp groups
+      if (!isMain) {
+        logger.warn({ sourceGroup }, 'Unauthorized create_group attempt blocked');
+        break;
+      }
+      if (data.name && Array.isArray(data.participants) && data.participants.length > 0) {
+        try {
+          const newJid = await deps.createGroup(data.name, data.participants);
+          logger.info({ name: data.name, newJid, participants: data.participants }, 'WhatsApp group created');
+          // Auto-register the new group if folder and trigger provided
+          if (data.folder && data.trigger) {
+            const folder = data.folder as string;
+            if (isValidGroupFolder(folder)) {
+              deps.registerGroup(newJid, {
+                name: data.name,
+                folder,
+                trigger: data.trigger as string,
+                added_at: new Date().toISOString(),
+                requiresTrigger: data.requiresTrigger ?? true,
+              });
+              logger.info({ newJid, folder }, 'New group auto-registered');
+            }
+          }
+          // Send the initial task message into the group if provided
+          if (data.initialMessage) {
+            await deps.sendMessage(newJid, data.initialMessage as string);
+          }
+        } catch (err) {
+          logger.error({ err, name: data.name }, 'Failed to create WhatsApp group');
+        }
+      } else {
+        logger.warn({ data }, 'Invalid create_group request - missing name or participants');
       }
       break;
 
