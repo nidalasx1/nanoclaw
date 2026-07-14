@@ -5,6 +5,8 @@ import path from 'path';
 import { ASSISTANT_NAME, DATA_DIR, STORE_DIR } from './config.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
+import { initTraceSchema } from './evolution/trace-collector.js';
+import { initEvolutionSchema } from './evolution/auto-committer.js';
 import {
   NewMessage,
   RegisteredGroup,
@@ -84,6 +86,35 @@ function createSchema(database: Database.Database): void {
     );
   `);
 
+  // Skill engine tables
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS skill_tracking (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_folder TEXT NOT NULL,
+      skill_name TEXT NOT NULL,
+      trigger_type TEXT NOT NULL,
+      triggered_at TEXT NOT NULL,
+      context TEXT,
+      UNIQUE(group_folder, skill_name, triggered_at)
+    );
+    CREATE INDEX IF NOT EXISTS idx_skill_tracking_group
+      ON skill_tracking(group_folder, triggered_at);
+    CREATE INDEX IF NOT EXISTS idx_skill_tracking_name
+      ON skill_tracking(skill_name, triggered_at);
+  `);
+
+  // Full-text search over session content for skill matching
+  // FTS5 virtual table — allows fast text search across agent conversations
+  try {
+    database.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS session_search
+        USING fts5(group_folder, content, timestamp, tokenize='porter');
+    `);
+  } catch {
+    // FTS5 may not be available in all SQLite builds — degrade gracefully
+    logger.warn('FTS5 not available, session_search table not created');
+  }
+
   // Add context_mode column if it doesn't exist (migration for existing DBs)
   try {
     database.exec(
@@ -157,6 +188,15 @@ function createSchema(database: Database.Database): void {
   } catch {
     /* columns already exist */
   }
+
+  // Evolution pipeline tables
+  initTraceSchema(database);
+  initEvolutionSchema(database);
+}
+
+/** Get the database instance (for subsystems that need direct access). */
+export function getDb(): Database.Database {
+  return db;
 }
 
 export function initDatabase(): void {
@@ -555,6 +595,89 @@ export function logTaskRun(log: TaskRunLog): void {
     log.result,
     log.error,
   );
+}
+
+// --- Skill tracking accessors ---
+
+export function trackSkillTrigger(
+  groupFolder: string,
+  skillName: string,
+  triggerType: string,
+  context?: string,
+): void {
+  db.prepare(
+    `INSERT OR IGNORE INTO skill_tracking (group_folder, skill_name, trigger_type, triggered_at, context)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(groupFolder, skillName, triggerType, new Date().toISOString(), context || null);
+}
+
+export function getSkillUsage(
+  groupFolder: string,
+  since?: string,
+): Array<{ skill_name: string; count: number; last_used: string }> {
+  const sinceTs = since || '1970-01-01T00:00:00.000Z';
+  return db
+    .prepare(
+      `SELECT skill_name, COUNT(*) as count, MAX(triggered_at) as last_used
+       FROM skill_tracking
+       WHERE group_folder = ? AND triggered_at > ?
+       GROUP BY skill_name
+       ORDER BY count DESC`,
+    )
+    .all(groupFolder, sinceTs) as Array<{
+    skill_name: string;
+    count: number;
+    last_used: string;
+  }>;
+}
+
+export function indexSessionContent(
+  groupFolder: string,
+  content: string,
+): void {
+  try {
+    db.prepare(
+      `INSERT INTO session_search (group_folder, content, timestamp) VALUES (?, ?, ?)`,
+    ).run(groupFolder, content, new Date().toISOString());
+  } catch {
+    // FTS5 table may not exist — degrade gracefully
+  }
+}
+
+export function searchSessionContent(
+  query: string,
+  groupFolder?: string,
+  limit: number = 10,
+): Array<{ group_folder: string; content: string; timestamp: string }> {
+  try {
+    if (groupFolder) {
+      return db
+        .prepare(
+          `SELECT group_folder, content, timestamp FROM session_search
+           WHERE session_search MATCH ? AND group_folder = ?
+           ORDER BY rank LIMIT ?`,
+        )
+        .all(query, groupFolder, limit) as Array<{
+        group_folder: string;
+        content: string;
+        timestamp: string;
+      }>;
+    }
+    return db
+      .prepare(
+        `SELECT group_folder, content, timestamp FROM session_search
+         WHERE session_search MATCH ?
+         ORDER BY rank LIMIT ?`,
+      )
+      .all(query, limit) as Array<{
+      group_folder: string;
+      content: string;
+      timestamp: string;
+    }>;
+  } catch {
+    // FTS5 not available
+    return [];
+  }
 }
 
 // --- Router state accessors ---
